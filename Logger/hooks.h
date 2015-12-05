@@ -490,4 +490,60 @@ __declspec(naked) void hkRC4ShortCryptBegin(char *data, int len)
 	_asm retn 8
 }
 
+void OnRSACryptBegin(char *buf, int len)
+{
+	log_main_put("New RSA dump: %d len\n", true, false, len);
+	log_print_data(buf, len);
+}
+
+void OnRSACryptEnd(char *buf, int len1, int len2)
+{
+	log_main_put("RSA after: len: %d -> %d\n", true, false, len1, len2);
+	log_print_data(buf, len2);
+}
+
+int(*RRSACrypt)(char*, int, char*, char*);
+
+//buf = in, buf3 = out
+__declspec(naked) int hkRSACrypt(char *buf, int len, char *buf2, char *buf3)
+{
+	_asm push ebp
+	_asm mov ebp, esp
+	_asm sub esp, 4
+	_asm mov dword ptr ss : [esp], edx
+	_asm pushad
+	_asm push len
+	_asm push buf
+	//_asm push edx
+	_asm call OnRSACryptBegin
+	_asm pop ebp
+	_asm pop ebp
+	_asm popad
+	
+	_asm push buf3
+	_asm push buf2
+	_asm push len
+	_asm push buf
+	_asm call RRSACrypt
+	_asm add esp, 4*4
+
+	_asm pushad
+	//_asm push len		//some useless data is cut
+	//_asm push buf3	//actually buf3 + 10h / 14h
+	_asm mov eax, dword ptr ss : [buf3]
+	_asm push dword ptr ds : [eax]
+	_asm push len
+	_asm mov eax, dword ptr ss : [buf3]
+	_asm add eax, 10h
+	_asm push eax
+	_asm call OnRSACryptEnd
+	_asm pop ebp
+	_asm pop ebp
+	_asm pop ebp
+	_asm popad
+	_asm mov esp, ebp
+	_asm pop ebp
+	_asm retn
+}
+
 __declspec(naked) void end_of_file() { _asm ret };

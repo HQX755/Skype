@@ -6,19 +6,41 @@ EZ::CHook *g_Hook = new EZ::CHook();
 
 #define SKYPE_LOOP_RECV 0x006CFDF0
 
+#define SKYPE_RC4_CRYPT_TCP 0x00746FD0
+#define SKYPE_RC4_CRYPT_UDP 0x00746F20
+
+#define SKYPE_RSA 0x006B3F40
 
 void InitializeHooks() 
 {
 	if (g_Hook) 
 	{
-		RConnect			= (int(WSAAPI*)(SOCKET, const sockaddr*, int))g_Hook->PlaceHook((unsigned char*)&connect, &hkConnect);
-		RRC4Crypt			= (void(*)(int))g_Hook->PlaceHook((unsigned char*)0x00746FD0, &hkRC4CryptBegin);
-		RRC4ShortCryptBegin	= (void(*)(char *, int))g_Hook->PlaceHook((unsigned char*)0x00746F20, &hkRC4ShortCryptBegin);
-		RCloseSocket		= (int(WSAAPI*)(SOCKET))g_Hook->PlaceHook((unsigned char*)&closesocket, &hkCloseSocket);
-		RSend				= (int(WSAAPI*)(SOCKET, char*, int, int))g_Hook->PlaceHook((unsigned char*)&send, &hkSend);
-		RSendTo				= (int(WSAAPI*)(SOCKET, char*, int, int, const sockaddr*, int))g_Hook->PlaceHook((unsigned char*)&sendto, &hkSendTo);
-		RRecv				= (int(WSAAPI*)(SOCKET, char*, int, int))g_Hook->PlaceHook((unsigned char*)&recv, &hkRecv);
-		RRecvFrom			= (int(WSAAPI*)(SOCKET, char*, int, int, sockaddr*, int))g_Hook->PlaceHook((unsigned char*)&recvfrom, &hkRecvFrom);
+		RConnect			= (int(WSAAPI*)(SOCKET, const sockaddr*, int))
+								g_Hook->PlaceHook((unsigned char*)&connect, &hkConnect);
+
+		RRC4Crypt			= (void(*)(int))
+								g_Hook->PlaceHook((unsigned char*)SKYPE_RC4_CRYPT_TCP, &hkRC4CryptBegin);
+
+		RRC4ShortCryptBegin = (void(*)(char *, int))
+								g_Hook->PlaceHook((unsigned char*)SKYPE_RC4_CRYPT_UDP, &hkRC4ShortCryptBegin);
+
+		RCloseSocket		= (int(WSAAPI*)(SOCKET))
+								g_Hook->PlaceHook((unsigned char*)&closesocket, &hkCloseSocket);
+
+		RSend				= (int(WSAAPI*)(SOCKET, char*, int, int))
+								g_Hook->PlaceHook((unsigned char*)&send, &hkSend);
+
+		RSendTo				= (int(WSAAPI*)(SOCKET, char*, int, int, const sockaddr*, int))
+								g_Hook->PlaceHook((unsigned char*)&sendto, &hkSendTo);
+
+		RRecv				= (int(WSAAPI*)(SOCKET, char*, int, int))
+								g_Hook->PlaceHook((unsigned char*)&recv, &hkRecv);
+
+		RRecvFrom			= (int(WSAAPI*)(SOCKET, char*, int, int, sockaddr*, int))
+								g_Hook->PlaceHook((unsigned char*)&recvfrom, &hkRecvFrom);
+
+		RRSACrypt			= (int(*)(char*, int, char*, char*))
+								g_Hook->PlaceHook((unsigned char*)SKYPE_RSA, &hkRSACrypt);
 	}
 }
 
