@@ -10,6 +10,7 @@ EZ::CHook *g_Hook = new EZ::CHook();
 #define SKYPE_RC4_CRYPT_UDP 0x00746F20
 
 #define SKYPE_RSA 0x006B3F40
+#define SKYPE_EAS 0x006E97A0
 
 void InitializeHooks() 
 {
@@ -41,6 +42,9 @@ void InitializeHooks()
 
 		RRSACrypt			= (int(*)(char*, int, char*, char*))
 								g_Hook->PlaceHook((unsigned char*)SKYPE_RSA, &hkRSACrypt);
+
+		REASCrypt			= (int(*)(char*, int, int, int, int, int))
+								g_Hook->PlaceHook((unsigned char*)SKYPE_EAS, &hkEASCrypt);
 	}
 }
 

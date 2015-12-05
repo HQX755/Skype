@@ -82,7 +82,7 @@ void log_main_put(std::stringstream &ss, bool add_thread_date, bool enter)
 
 void log_main_put(const char *format, bool add_thread_date, bool enter, ...)
 {
-	static char buf[1024];
+	char buf[1024];
 	FILE *fp = nullptr;
 
 	if (enter)
@@ -544,6 +544,54 @@ __declspec(naked) int hkRSACrypt(char *buf, int len, char *buf2, char *buf3)
 	_asm mov esp, ebp
 	_asm pop ebp
 	_asm retn
+}
+
+void OnEASCryptBegin(char *buf, int len)
+{
+	log_main_put("New EAS dump: %d len\n", true, false, len);
+	log_print_data(buf, len);
+}
+
+void OnEASCryptEnd(char *buf, int len)
+{
+	log_main_put("EAS after: %d len\n", true, false, len);
+	log_print_data(buf, len);
+}
+
+int(*REASCrypt)(char* buf, int len, int a3, int a4, int a5, int a6);
+
+__declspec(naked) int hkEASCrypt(char *buf, int len, int a3, int a4, int a5, int a6)
+{
+	_asm push ebp
+	_asm mov ebp, esp
+	_asm sub esp, 4
+	_asm mov dword ptr ss : [esp], ecx
+	_asm pushad
+	_asm push len
+	_asm push ecx
+	_asm call OnEASCryptBegin
+	_asm pop ebp
+	_asm pop ebp
+	_asm popad
+
+	_asm push a6
+	_asm push a5
+	_asm push a4
+	_asm push a3
+	_asm push len
+	_asm push buf
+	_asm call REASCrypt
+
+	_asm pushad
+	_asm push len
+	_asm push dword ptr ss : [esp+24h]
+	_asm call OnEASCryptEnd
+	_asm pop ebp
+	_asm pop ebp
+	_asm popad
+	_asm mov esp, ebp
+	_asm pop ebp
+	_asm retn 18h
 }
 
 __declspec(naked) void end_of_file() { _asm ret };
