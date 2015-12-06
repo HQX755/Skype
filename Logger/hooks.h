@@ -13,6 +13,8 @@
 
 #include "Hook.h"
 
+#define LOCALHOST 16777343
+
 static long long	procId		= GetCurrentProcessId();
 static std::string	filename	= std::string("Debug") + std::to_string(procId) + std::string(".txt");
 
@@ -236,11 +238,15 @@ public:
 
 		unsigned int ip			= m_ip;
 		unsigned short port		= m_port;
+
+		enter_cs();
 		
 		log_main_put("Sent tcp packet to %u.%u.%u.%u:%u - %d len\n", 
-			true, true, ip & 0xFF, (ip >> 8) & 0xFF, (ip >> 16) & 0xFF, ip >> 24, port, len);
+			true, false, ip & 0xFF, (ip >> 8) & 0xFF, (ip >> 16) & 0xFF, ip >> 24, port, len);
 
 		log_print_data(buffer, len);
+
+		leave_cs();
 	}
 
 	void OnRecv(char *buffer, int len)
@@ -250,10 +256,14 @@ public:
 		unsigned int ip			= m_ip;
 		unsigned short port		= m_port;
 
+		enter_cs();
+
 		log_main_put("Recv tcp packet from %u.%u.%u.%u:%u - %d len\n", 
-			true, true, ip & 0xFF, (ip >> 8) & 0xFF, (ip >> 16) & 0xFF, ip >> 24, port, len);
+			true, false, ip & 0xFF, (ip >> 8) & 0xFF, (ip >> 16) & 0xFF, ip >> 24, port, len);
 
 		log_print_data(buffer, len);
+
+		leave_cs();
 	}
 };
 
@@ -323,10 +333,14 @@ int WSAAPI hkRecvFrom(SOCKET s, char *buffer, int len, int flags, sockaddr *from
 	ip		= in->sin_addr.S_un.S_addr;
 	port	= in->sin_port;
 
-	if (recv != INVALID_SOCKET)
+	if (recv != INVALID_SOCKET && ip != LOCALHOST)
 	{
-		log_main_put("Recv packet from %u.%u.%u.%u:%u - %d len\n", true, true, ip & 0xFF, (ip >> 8) & 0xFF, (ip >> 16) & 0xFF, ip >> 24, port, min(recv, len));
+		enter_cs();
+
+		log_main_put("Recv packet from %u.%u.%u.%u:%u - %d len\n", true, false, ip & 0xFF, (ip >> 8) & 0xFF, (ip >> 16) & 0xFF, ip >> 24, port, min(recv, len));
 		log_print_data(buffer, min(recv, len));
+
+		leave_cs();
 	}
 
 	return recv;
@@ -345,10 +359,14 @@ int WSAAPI hkSendTo(SOCKET s, char *buffer, int len, int flags, const sockaddr* 
 	ip		= in->sin_addr.S_un.S_addr;
 	port	= in->sin_port;
 
-	if (ret != INVALID_SOCKET)
+	if (ret != INVALID_SOCKET && ip != LOCALHOST)
 	{
-		log_main_put("Sent packet to %u.%u.%u.%u:%u - %d len\n", true, true, ip & 0xFF, (ip >> 8) & 0xFF, (ip >> 16) & 0xFF, ip >> 24, port, ret);
+		enter_cs();
+
+		log_main_put("Sent packet to %u.%u.%u.%u:%u - %d len\n", true, false, ip & 0xFF, (ip >> 8) & 0xFF, (ip >> 16) & 0xFF, ip >> 24, port, ret);
 		log_print_data(buffer, ret);
+
+		leave_cs();
 	}
 
 	return ret;
@@ -404,7 +422,7 @@ void OnRC4CryptBegin(char *buf, int len)
 
 	pLastCryptBuffer = buf;
 
-	log_main_put("New RC4 dump: %d len\n", true, true, len);
+	log_main_put("New RC4 dump: %d len\n", true, false, len);
 	log_print_data(buf, len);
 }
 
@@ -412,23 +430,11 @@ void OnRC4CryptEnd(char *buf, int len)
 {
 	if (pLastCryptBuffer != nullptr)
 	{
-		log_main_put("RC4 after:\n", false, true);
+		log_main_put("RC4 after:\n", false, false);
 		log_print_data(pLastCryptBuffer, len);
 	}
 
 	leave_cs();
-}
-
-void OnRC4ShortCryptBegin(char *buf, int len, unsigned int ret)
-{
-	log_main_put("New RC4 short dump: %d len from %p\n", true, true, len, ret);
-	log_print_data(buf, len);
-}
-
-void OnRC4ShortCryptEnd(char *buf, int len)
-{
-	log_main_put("RC4s after:\n", false, true);
-	log_print_data(buf, len);
 }
 
 void(*RRC4Crypt)(int);
@@ -459,21 +465,37 @@ __declspec(naked) void hkRC4CryptBegin(int len)
 	_asm retn 4
 }
 
+void OnRC4ShortCryptBegin(char *buf, int len, unsigned int ret)
+{
+	enter_cs();
+
+	log_main_put("New RC4 short dump: %d len from %p\n", true, true, len, ret);
+	log_print_data(buf, len);
+}
+
+void OnRC4ShortCryptEnd(char *buf, int len)
+{
+	log_main_put("RC4s after:\n", false, false);
+	log_print_data(buf, len);
+
+	leave_cs();
+}
+
 void(*RRC4ShortCryptBegin)(char *data, int len);
 
 __declspec(naked) void hkRC4ShortCryptBegin(char *data, int len)
 {
+	_asm push ebp
+	_asm mov ebp, esp
 	_asm pushad
-	_asm push dword ptr ss : [esp + 20h]
-	_asm push dword ptr ss : [esp + 2Ch]
-	_asm push dword ptr ss : [esp + 2Ch]
+	_asm push dword ptr ss : [ebp + 4]
+	_asm push dword ptr ss : [ebp + 0ch]
+	_asm push ecx
 	_asm call OnRC4ShortCryptBegin
 	_asm pop ebp
 	_asm pop ebp
 	_asm pop ebp
 	_asm popad
-	_asm push ebp
-	_asm mov ebp, esp
 	_asm push len
 	_asm push data
 	_asm call RRC4ShortCryptBegin
@@ -492,19 +514,22 @@ __declspec(naked) void hkRC4ShortCryptBegin(char *data, int len)
 
 void OnRSACryptBegin(char *buf, int len)
 {
+	enter_cs();
+
 	log_main_put("New RSA dump: %d len\n", true, false, len);
 	log_print_data(buf, len);
 }
 
-void OnRSACryptEnd(char *buf, int len1, int len2)
+void OnRSACryptEnd(char *buf, int len)
 {
-	log_main_put("RSA after: len: %d -> %d\n", true, false, len1, len2);
-	log_print_data(buf, len2);
+	log_main_put("RSA after: len: %d\n", true, false, len);
+	log_print_data(buf, len);
+
+	leave_cs();
 }
 
 int(*RRSACrypt)(char*, int, char*, char*);
 
-//buf = in, buf3 = out
 __declspec(naked) int hkRSACrypt(char *buf, int len, char *buf2, char *buf3)
 {
 	_asm push ebp
@@ -514,7 +539,6 @@ __declspec(naked) int hkRSACrypt(char *buf, int len, char *buf2, char *buf3)
 	_asm pushad
 	_asm push len
 	_asm push buf
-	//_asm push edx
 	_asm call OnRSACryptBegin
 	_asm pop ebp
 	_asm pop ebp
@@ -527,27 +551,28 @@ __declspec(naked) int hkRSACrypt(char *buf, int len, char *buf2, char *buf3)
 	_asm call RRSACrypt
 	_asm add esp, 4*4
 
-	_asm pushad
-	//_asm push len		//some useless data is cut
-	//_asm push buf3	//actually buf3 + 10h / 14h
-	_asm mov eax, dword ptr ss : [buf3]
-	_asm push dword ptr ds : [eax]
-	_asm push len
-	_asm mov eax, dword ptr ss : [buf3]
-	_asm add eax, 10h
-	_asm push eax
-	_asm call OnRSACryptEnd
-	_asm pop ebp
-	_asm pop ebp
-	_asm pop ebp
-	_asm popad
 	_asm mov esp, ebp
 	_asm pop ebp
 	_asm retn
 }
 
+__declspec(naked) void hkRSAEnd()
+{
+	_asm pushad
+	_asm push dword ptr ss : [esp + 28h]
+	_asm push edi
+	_asm call OnRSACryptEnd
+	_asm pop ebp
+	_asm pop ebp
+	_asm popad
+	_asm mov edi, dword ptr ss : [esp + 18h]
+	_asm mov edx, dword ptr ds : [edi]
+}
+
 void OnEASCryptBegin(char *buf, int len)
 {
+	enter_cs();
+
 	log_main_put("New EAS dump: %d len\n", true, false, len);
 	log_print_data(buf, len);
 }
@@ -556,6 +581,8 @@ void OnEASCryptEnd(char *buf, int len)
 {
 	log_main_put("EAS after: %d len\n", true, false, len);
 	log_print_data(buf, len);
+
+	leave_cs();
 }
 
 int(*REASCrypt)(char* buf, int len, int a3, int a4, int a5, int a6);

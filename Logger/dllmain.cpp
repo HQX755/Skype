@@ -10,6 +10,7 @@ EZ::CHook *g_Hook = new EZ::CHook();
 #define SKYPE_RC4_CRYPT_UDP 0x00746F20
 
 #define SKYPE_RSA 0x006B3F40
+#define SKYPE_RSA_END 0x006B42DA
 #define SKYPE_EAS 0x006E97A0
 
 void InitializeHooks() 
@@ -45,6 +46,10 @@ void InitializeHooks()
 
 		REASCrypt			= (int(*)(char*, int, int, int, int, int))
 								g_Hook->PlaceHook((unsigned char*)SKYPE_EAS, &hkEASCrypt);
+
+		//to get the buffer data on stack
+		memset((void*)SKYPE_RSA_END, 0x90, 6);
+		g_Hook->PlaceHook((void*)SKYPE_RSA_END, &hkRSAEnd);
 	}
 }
 
