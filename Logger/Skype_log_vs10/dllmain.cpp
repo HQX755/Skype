@@ -13,7 +13,7 @@ EZ::CHook *g_Hook = new EZ::CHook();
 
 #define SKYPE_RSA 0x006B3F40
 #define SKYPE_RSA_END 0x006B42DA
-#define SKYPE_EAS 0x006E97A0
+#define SKYPE_AES 0x006E97A0
 
 void InitializeHooks() 
 {
@@ -46,8 +46,8 @@ void InitializeHooks()
 		RRSACrypt			= (int(*)(char*, int, char*, char*))
 								g_Hook->PlaceHook((unsigned char*)SKYPE_RSA, &hkRSACrypt);
 
-		REASCrypt			= (int(*)(char*, int, int, int, int, int))
-								g_Hook->PlaceHook((unsigned char*)SKYPE_EAS, &hkEASCrypt);
+		RAESCrypt			= (int(*)(char*, int, int, int, int, int))
+								g_Hook->PlaceHook((unsigned char*)SKYPE_AES, &hkAESCrypt);
 
 		//to get the buffer data on stack
 		memset((void*)SKYPE_RSA_END, 0x90, 6);
@@ -56,11 +56,11 @@ void InitializeHooks()
 }
 
 BOOL APIENTRY DllMain( HMODULE hModule,
-                       DWORD  ul_reason_for_call,
+                       DWORD  ul_rAESon_for_call,
                        LPVOID lpReserved
 					 )
 {
-	switch (ul_reason_for_call)
+	switch (ul_rAESon_for_call)
 	{
 	case DLL_PROCESS_ATTACH:
 

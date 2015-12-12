@@ -602,25 +602,25 @@ __declspec(naked) void hkRSAEnd()
 	_asm mov edx, dword ptr ds : [edi]
 }
 
-void OnEASCryptBegin(char *buf, int len)
+void OnAESCryptBegin(char *buf, int len)
 {
 	enter_cs();
 
-	log_main_put("New EAS dump: %d len\n", true, false, len);
+	log_main_put("New AES dump: %d len\n", true, false, len);
 	log_print_data(buf, len);
 }
 
-void OnEASCryptEnd(char *buf, int len)
+void OnAESCryptEnd(char *buf, int len)
 {
-	log_main_put("EAS after: %d len\n", true, false, len);
+	log_main_put("AES after: %d len\n", true, false, len);
 	log_print_data(buf, len);
 
 	leave_cs();
 }
 
-int(*REASCrypt)(char* buf, int len, int a3, int a4, int a5, int a6);
+int(*RAESCrypt)(char* buf, int len, int a3, int a4, int a5, int a6);
 
-__declspec(naked) int hkEASCrypt(char *buf, int len, int a3, int a4, int a5, int a6)
+__declspec(naked) int hkAESCrypt(char *buf, int len, int a3, int a4, int a5, int a6)
 {
 	_asm push ebp
 	_asm mov ebp, esp
@@ -629,7 +629,7 @@ __declspec(naked) int hkEASCrypt(char *buf, int len, int a3, int a4, int a5, int
 	_asm pushad
 	_asm push len
 	_asm push ecx
-	_asm call OnEASCryptBegin
+	_asm call OnAESCryptBegin
 	_asm pop ebp
 	_asm pop ebp
 	_asm popad
@@ -640,12 +640,12 @@ __declspec(naked) int hkEASCrypt(char *buf, int len, int a3, int a4, int a5, int
 	_asm push a3
 	_asm push len
 	_asm push buf
-	_asm call REASCrypt
+	_asm call RAESCrypt
 
 	_asm pushad
 	_asm push len
 	_asm push dword ptr ss : [esp+24h]
-	_asm call OnEASCryptEnd
+	_asm call OnAESCryptEnd
 	_asm pop ebp
 	_asm pop ebp
 	_asm popad
