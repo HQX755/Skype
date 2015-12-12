@@ -44,18 +44,12 @@ extern LPCRITICAL_SECTION g_LogMutex = new CRITICAL_SECTION;
 
 void enter_cs()
 {
-	while (!TryEnterCriticalSection(g_LogMutex))
-	{
-		WaitForSingleObject(g_LogMutex, INFINITE);
-	}
-
-	ResetEvent(g_Log);
+	EnterCriticalSection(g_LogMutex);
 }
 
 void leave_cs()
 {
 	LeaveCriticalSection(g_LogMutex);
-	SetEvent(g_Log);
 }
 
 void log_main_put(std::stringstream &ss, bool add_thread_date, bool enter)
